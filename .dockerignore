@@ -1,4 +1,10 @@
 .git
+node_modules
+cloudflare
+wrangler.jsonc
+package.json
+package-lock.json
+.wrangler
 output
 .uploads
 .columbia_cache
