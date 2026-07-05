@@ -53,6 +53,7 @@ async function loadFaculties() {
   $('#gate').hidden = true;
   $('#ver').textContent = 'v' + (data.version || '');
   applyMode(data.mode || 'local');
+  applyLlm(data.llm || { available: false });
   const row = $('#statusRow');
   row.innerHTML = '';
   for (const f of data.faculties) {
@@ -75,6 +76,19 @@ function applyMode(mode) {
   if (api && $('#sp-engine').value === 'chatterbox') $('#sp-engine').value = 'edge';
   $('#dub-ref-field').hidden = api;      // cloning is Chatterbox-only
   $('#dub-voice-field').hidden = !api;   // edge narrator picked by name
+}
+
+/* Gemma features exist only when the server has a Gemini API key. */
+function applyLlm(llm) {
+  $('#sp-polish-field').hidden = !llm.available;
+  const t = $('#dub-translate'), hint = $('#dub-translate-hint');
+  if (llm.available) {
+    t.disabled = false;
+    hint.textContent = `Only if your .srt isn't already English. Translated by ${llm.model}.`;
+  } else {
+    t.disabled = true; t.checked = false;
+    hint.textContent = 'Needs a Gemini API key on the server (GEMINI_API_KEY) — currently off.';
+  }
 }
 
 /* ── access-code gate ──────────────────────────────────────────────────── */
@@ -213,6 +227,7 @@ function makeRunner(prefix, faculty, buildBody, renderResult) {
     fd.append('engine', $('#sp-engine').value);
     fd.append('voice', $('#sp-voice').value || 'en-US-AriaNeural');
     fd.append('speed', speed.value);
+    fd.append('polish', $('#sp-polish').checked);
     const f = $('#sp-file').files[0];
     if (source === 'file' && f) fd.append('file', f);
     runner.submit(fd);

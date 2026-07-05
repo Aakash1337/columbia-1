@@ -125,6 +125,20 @@ VPS. `$PORT` from the platform is honored automatically.
 behind a code prompt (cookie once entered, or an `X-Access-Code` header for
 curl). Without it, anyone with the URL can use your instance.
 
+**Optional — Gemma:** set `GEMINI_API_KEY` (free key from
+[AI Studio](https://aistudio.google.com/apikey)) and two LLM features light up:
+
+- **Speech → “Polish text with Gemma”** — smooths rule-cleaned text for the ear
+  (fixes broken sentences, drops citations/web cruft, speaks out symbols)
+  before narration. The hosted counterpart of the local app's Ollama pass.
+- **Dubbing → “Translate cues first”** — actually translates each subtitle cue
+  (the engine repo ships a passthrough stub) into natural voiceover English.
+
+Default model is Gemma 4 (`gemma-4-31b-it`); override with `GEMINI_MODEL`.
+The free tier comfortably covers personal use, so this stays $0. Pass the key
+at **run time** (`-e GEMINI_API_KEY=...` / your platform's env settings) —
+never bake it into the image or commit it.
+
 > **Why not Cloudflare Workers/Pages?** Those run static files and edge
 > functions — not a persistent Python server with ffmpeg. Deploying this repo
 > with `wrangler deploy` will fail. Use a container platform (including
@@ -142,15 +156,17 @@ override. Resolution order: **defaults → `columbia.yaml` → `COLUMBIA_*` env 
 |---|---|---|
 | `mode` | `local` | `local` (full engines, GPU) or `api` (online voices, CPU-only) |
 | `access_code` | `null` | when set, every request needs this code (hosted instances) |
+| `gemini_api_key` | `null` | enables Gemma translation + polish (prefer the env var) |
+| `gemini_model` | `null` | Gemini-API model id; default `gemma-4-31b-it` |
 | `host` / `port` | `127.0.0.1` / `0` | bind address; `0` = free port (`PORT` env honored) |
 | `tts_repo` | auto | path to the TTS checkout (`ttscore` package). `null` → find a sibling |
 | `dubbing_repo` | auto | path to the AI-Dubbing checkout (`dubbing` package). `null` → find a sibling |
 | `output_dir` | `output` | unified library: `.mp3` narrations + `.mp4` dubs |
 | `cache_dir` | `.columbia_cache` | engines' per-chunk / per-cue caches (crash-resume) |
 
-Env overrides: `COLUMBIA_MODE`, `COLUMBIA_ACCESS_CODE`, `COLUMBIA_HOST`,
-`COLUMBIA_PORT`, `COLUMBIA_TTS_REPO`, `COLUMBIA_DUBBING_REPO`,
-`COLUMBIA_OUTPUT_DIR`.
+Env overrides: `COLUMBIA_MODE`, `COLUMBIA_ACCESS_CODE`, `GEMINI_API_KEY`,
+`GEMINI_MODEL`, `COLUMBIA_HOST`, `COLUMBIA_PORT`, `COLUMBIA_TTS_REPO`,
+`COLUMBIA_DUBBING_REPO`, `COLUMBIA_OUTPUT_DIR`.
 
 ---
 

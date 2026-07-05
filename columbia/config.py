@@ -60,6 +60,15 @@ class ColumbiaConfig:
     prompt, or an X-Access-Code header). Meant for hosted API-mode instances,
     which are otherwise open to anyone with the URL. None = no gate (local)."""
 
+    # ── LLM (Gemma via the Gemini API) ───────────────────────────────────────
+    gemini_api_key: Optional[str] = None
+    """Google AI Studio key. Enables the optional Gemma features: subtitle
+    translation for Dubbing and the text-polish pass for Speech. None = both
+    stay off. Prefer the GEMINI_API_KEY env var over writing it in YAML."""
+
+    gemini_model: Optional[str] = None
+    """Model id on the Gemini API. None = columbia.llm.DEFAULT_MODEL."""
+
     # ── Network ──────────────────────────────────────────────────────────────
     host: str = "127.0.0.1"
     """Bind address. Localhost-only by default; set to 0.0.0.0 to expose on LAN."""
@@ -175,6 +184,8 @@ class ColumbiaConfig:
         env_map = {
             "COLUMBIA_MODE": ("mode", str),
             "COLUMBIA_ACCESS_CODE": ("access_code", str),
+            "GEMINI_API_KEY": ("gemini_api_key", str),
+            "GEMINI_MODEL": ("gemini_model", str),
             "COLUMBIA_HOST": ("host", str),
             "COLUMBIA_PORT": ("port", int),
             "COLUMBIA_TTS_REPO": ("tts_repo", str),

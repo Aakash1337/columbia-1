@@ -92,9 +92,12 @@ def create_app(cfg: Optional[ColumbiaConfig] = None) -> FastAPI:
 
     @app.get("/api/faculties")
     def list_faculties() -> JSONResponse:
+        from .llm import DEFAULT_MODEL
         return JSONResponse({
             "version": __import__("columbia").__version__,
             "mode": cfg.mode,
+            "llm": {"available": bool(cfg.gemini_api_key),
+                    "model": cfg.gemini_model or DEFAULT_MODEL},
             "faculties": [f.describe() for f in faculties.values()],
         })
 
@@ -107,6 +110,7 @@ def create_app(cfg: Optional[ColumbiaConfig] = None) -> FastAPI:
         engine: str = Form("edge"),
         voice: str = Form("en-US-AriaNeural"),
         speed: float = Form(1.0),
+        polish: str = Form("false"),
         file: Optional[UploadFile] = File(None),
     ) -> JSONResponse:
         fac = _require(faculties, "speech")
@@ -114,7 +118,8 @@ def create_app(cfg: Optional[ColumbiaConfig] = None) -> FastAPI:
         if input_type in ("pdf", "file") and file is not None and (file.filename or "").strip():
             upload = _save_upload(cfg, file)
         params = {"input_type": input_type, "text": text, "url": url,
-                  "engine": engine, "voice": voice, "speed": speed}
+                  "engine": engine, "voice": voice, "speed": speed,
+                  "polish": _as_bool(polish)}
         job = fac.start(manager, params, upload)
         return JSONResponse({"job_id": job.id})
 

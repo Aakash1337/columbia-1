@@ -105,12 +105,24 @@ class DubbingFaculty(Faculty):
                 from dubbing.tts import Narrator
                 narrator = Narrator(cfg)
 
+            # Translation: the dubbing repo's translate_text is a swappable
+            # stub (passthrough by default). When a Gemma key is configured,
+            # swap in a real translator for this job — same serialized
+            # swap-and-restore pattern as the tqdm progress bridge below.
+            original_translate = dub_pipeline.translate_text
+            if translate and cfg_obj.gemini_api_key:
+                from ..llm import GemmaClient
+                client = GemmaClient(cfg_obj.gemini_api_key, cfg_obj.gemini_model)
+                dub_pipeline.translate_text = (
+                    lambda text, target, source=None: client.translate(text, target, source))
+
             original_tqdm = dub_pipeline.tqdm
             dub_pipeline.tqdm = _counting_tqdm(job)
             try:
                 result = dub_pipeline.process_video(pair, cfg, narrator, report)
             finally:
                 dub_pipeline.tqdm = original_tqdm
+                dub_pipeline.translate_text = original_translate
                 narrator.reset()
                 # The uploaded video/srt/reference are one-shot: the dub is
                 # written elsewhere (output_dir) and the cache keeps the cues.

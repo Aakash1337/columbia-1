@@ -7,7 +7,11 @@
 # Fly.io, Render, a VPS.
 #
 #   docker build -t columbia-1 .
-#   docker run -p 8080:8080 -e COLUMBIA_ACCESS_CODE=your-secret columbia-1
+#   docker run -p 8080:8080 -e COLUMBIA_ACCESS_CODE=your-secret \
+#              -e GEMINI_API_KEY=your-key columbia-1
+#
+# GEMINI_API_KEY (optional) enables Gemma translation + text polish. Always
+# pass it at RUN time like above — never as a build arg or baked-in ENV.
 #
 # The two engine repos are cloned at build time (only their light, CPU-side
 # code paths are exercised). For private repos pass a token:
