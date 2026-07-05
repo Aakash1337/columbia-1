@@ -49,8 +49,12 @@ class Faculty:
     def _package_present(self) -> bool:
         """True if the engine package can be located on sys.path (no import of
         its heavy dependencies — just a spec lookup)."""
+        return self._module_present(self.requires_package)
+
+    @staticmethod
+    def _module_present(name: str) -> bool:
         try:
-            return importlib.util.find_spec(self.requires_package) is not None
+            return importlib.util.find_spec(name) is not None
         except (ImportError, ValueError):
             return False
 

@@ -35,6 +35,15 @@ class DubbingFaculty(Faculty):
                 "AI-Dubbing engine not found",
                 detail="Expected the 'dubbing' package (set dubbing_repo in columbia.yaml).",
             )
+        if self.cfg.mode == "api":
+            # API narrator = ttscore's edge engine, so both must be present.
+            if not self._module_present("ttscore"):
+                return Availability(False, "TTS Reader engine not found",
+                                    detail="API-mode dubbing borrows ttscore's edge voice engine.")
+            if not self._module_present("edge_tts"):
+                return Availability(False, "edge-tts package missing",
+                                    detail="pip install edge-tts (see requirements-api.txt)")
+            return Availability(True, "Ready", device="api")
         device = self._torch_device("cuda")
         reason = "Ready" if device == "cuda" else "Ready (CPU — slow without a GPU)"
         return Availability(True, reason, device=device)
@@ -50,8 +59,10 @@ class DubbingFaculty(Faculty):
         cfg_obj = self.cfg
 
         # Parse UI options up front (outside the thread) so bad input fails fast.
+        api_mode = cfg_obj.mode == "api"
         translate = bool(params.get("translate"))
         preview = bool(params.get("preview"))
+        voice = (params.get("voice") or "en-US-GuyNeural").strip()
         try:
             max_atempo = float(params.get("max_atempo") or 1.5)
         except (TypeError, ValueError):
@@ -63,17 +74,17 @@ class DubbingFaculty(Faculty):
             from dubbing.logging_setup import RunReport, new_run_id, setup_logging
             from dubbing import ffmpeg_utils, pipeline as dub_pipeline
             from dubbing.pairing import Pair
-            from dubbing.tts import Narrator
 
             cfg = Config(
                 output_dir=str(cfg_obj.output_path),
                 cache_dir=str(cfg_obj.cache_path / "dubbing"),
                 log_dir=str(cfg_obj.log_path),
-                reference_wav=str(reference) if reference else None,
+                # Voice cloning is Chatterbox-only; edge voices are picked by name.
+                reference_wav=None if api_mode else (str(reference) if reference else None),
                 translate=translate,
                 max_atempo=max_atempo,
                 max_cues=max_cues,
-                device=Faculty._torch_device("cuda"),
+                device="cpu" if api_mode else Faculty._torch_device("cuda"),
                 overwrite=True,   # on-demand web dub: replace any prior output
             )
             cfg.validate()
@@ -88,7 +99,22 @@ class DubbingFaculty(Faculty):
                                started_at=datetime.now().isoformat(timespec="seconds"))
 
             job.set_stage("Loading voice model")
-            narrator = Narrator(cfg)
+            if api_mode:
+                narrator = EdgeNarrator(voice)
+            else:
+                from dubbing.tts import Narrator
+                narrator = Narrator(cfg)
+
+            # Translation: the dubbing repo's translate_text is a swappable
+            # stub (passthrough by default). When a Gemma key is configured,
+            # swap in a real translator for this job — same serialized
+            # swap-and-restore pattern as the tqdm progress bridge below.
+            original_translate = dub_pipeline.translate_text
+            if translate and cfg_obj.gemini_api_key:
+                from ..llm import GemmaClient
+                client = GemmaClient(cfg_obj.gemini_api_key, cfg_obj.gemini_model)
+                dub_pipeline.translate_text = (
+                    lambda text, target, source=None: client.translate(text, target, source))
 
             original_tqdm = dub_pipeline.tqdm
             dub_pipeline.tqdm = _counting_tqdm(job)
@@ -96,6 +122,7 @@ class DubbingFaculty(Faculty):
                 result = dub_pipeline.process_video(pair, cfg, narrator, report)
             finally:
                 dub_pipeline.tqdm = original_tqdm
+                dub_pipeline.translate_text = original_translate
                 narrator.reset()
                 # The uploaded video/srt/reference are one-shot: the dub is
                 # written elsewhere (output_dir) and the cache keeps the cues.
@@ -120,6 +147,31 @@ class DubbingFaculty(Faculty):
             }
 
         return worker
+
+
+class EdgeNarrator:
+    """API-mode narrator: satisfies the ``dubbing.tts.Narrator`` interface
+    (``synthesize(text, cue_index) -> np.ndarray``, ``sample_rate``,
+    ``model_id``, ``reset``) by delegating to ttscore's proven edge-tts engine —
+    Microsoft's online neural voices. No GPU, no model download; the voice is
+    picked by name instead of cloned from a reference clip.
+
+    ``model_id`` includes the voice so the dubbing pipeline's per-cue cache
+    invalidates when the narrator voice changes."""
+
+    def __init__(self, voice: str) -> None:
+        from ttscore.config import Config as TtsConfig
+        from ttscore.engines import create_engine
+
+        self._engine = create_engine(TtsConfig(engine="edge", edge_voice=voice))
+        self.sample_rate = self._engine.sample_rate
+        self.model_id = f"edge:{voice}"
+
+    def synthesize(self, text: str, cue_index: int = 0):
+        return self._engine.synthesize(text, cue_index)
+
+    def reset(self) -> None:
+        self._engine.reset()
 
 
 def _counting_tqdm(job: Job):

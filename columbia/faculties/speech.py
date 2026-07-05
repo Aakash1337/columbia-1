@@ -37,6 +37,12 @@ class SpeechFaculty(Faculty):
                 "TTS Reader engine not found",
                 detail="Expected the 'ttscore' package (set tts_repo in columbia.yaml).",
             )
+        if self.cfg.mode == "api":
+            # GPU-free path: only the online edge voices, which need edge-tts.
+            if not self._module_present("edge_tts"):
+                return Availability(False, "edge-tts package missing",
+                                    detail="pip install edge-tts (see requirements-api.txt)")
+            return Availability(True, "Ready", device="api")
         device = self._torch_device("cuda")
         # edge voices run online without a GPU, so the faculty is usable either
         # way; the device line just tells the user what Chatterbox would use.
@@ -47,20 +53,23 @@ class SpeechFaculty(Faculty):
               upload: Optional[Path] = None) -> Job:
         input_type = (params.get("input_type") or "text").strip().lower()
         engine = (params.get("engine") or "edge").strip().lower()
-        if engine not in _ENGINES:
-            engine = "edge"
+        if engine not in _ENGINES or self.cfg.mode == "api":
+            engine = "edge"      # API mode: no local models, ever
         voice = (params.get("voice") or "en-US-AriaNeural").strip()
+        polish = bool(params.get("polish")) and bool(self.cfg.gemini_api_key)
         try:
             speed = max(0.5, min(2.0, float(params.get("speed") or 1.0)))
         except (TypeError, ValueError):
             speed = 1.0
 
         label = self._label(input_type, params, upload)
-        worker = self._make_worker(input_type, params, upload, engine, voice, speed)
+        worker = self._make_worker(input_type, params, upload, engine, voice,
+                                   speed, polish)
         return manager.submit(self.id, label, worker)
 
     # ── worker ───────────────────────────────────────────────────────────────
-    def _make_worker(self, input_type, params, upload, engine, voice, speed):
+    def _make_worker(self, input_type, params, upload, engine, voice, speed,
+                     polish=False):
         cfg_obj = self.cfg
 
         def worker(job: Job) -> dict:
@@ -91,9 +100,29 @@ class SpeechFaculty(Faculty):
                 job.set_stage("Synthesizing")
                 job.progress(done, total)
 
+            # Optional Gemma polish: wrap the pipeline's arrange step so the
+            # rule-cleaned text gets an extra API pass before chunking. Swapped
+            # in only for this job and always restored — safe because the job
+            # manager serializes engine jobs. (Hosted counterpart of the local
+            # app's Ollama polish, which ttscore only knows how to do locally.)
+            from ttscore import pipeline as tts_pipeline
+            original_arrange = tts_pipeline.arrange
+            if polish:
+                from ..llm import GemmaClient
+                client = GemmaClient(cfg_obj.gemini_api_key, cfg_obj.gemini_model)
+
+                def polished_arrange(raw, acfg):
+                    text, _used = original_arrange(raw, acfg)
+                    job.set_stage("Polishing text with Gemma")
+                    text = client.polish(text, progress=job.progress)
+                    return text, True
+
+                tts_pipeline.arrange = polished_arrange
+
             try:
                 report = run([src], cfg, progress=progress)
             finally:
+                tts_pipeline.arrange = original_arrange
                 if cleanup_dir is not None:
                     shutil.rmtree(cleanup_dir, ignore_errors=True)
 

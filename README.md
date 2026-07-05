@@ -98,6 +98,55 @@ Columbia-1 0.1.0
 
 ---
 
+## Hosted (API mode)
+
+Columbia-1 has two modes — same app, same UI, different power source:
+
+| | `mode: local` | `mode: api` |
+|---|---|---|
+| Runs on | your GPU box, next to the repos | **any CPU-only container host** |
+| Speech voices | Chatterbox (offline, cloning) + edge | Microsoft online neural voices |
+| Dubbing narrator | Chatterbox (reference-clip cloning) | online neural voice, picked by name |
+| Needs torch / models | yes | **no** |
+
+In API mode both faculties speak through **edge-tts** (free, no key), so the
+whole app fits in a small container: the `Dockerfile` builds it with ffmpeg and
+the two engine repos' light code paths — no torch, no model downloads.
+
+```bash
+docker build -t columbia-1 .
+docker run -p 8080:8080 -e COLUMBIA_ACCESS_CODE=your-secret columbia-1
+```
+
+Deploy that image to **Railway, Fly.io, Render, Cloudflare Containers**, or any
+VPS. `$PORT` from the platform is honored automatically.
+
+**Set `COLUMBIA_ACCESS_CODE`** on any hosted instance — it gates every request
+behind a code prompt (cookie once entered, or an `X-Access-Code` header for
+curl). Without it, anyone with the URL can use your instance.
+
+**Optional — Gemma:** set `GEMINI_API_KEY` (free key from
+[AI Studio](https://aistudio.google.com/apikey)) and two LLM features light up:
+
+- **Speech → “Polish text with Gemma”** — smooths rule-cleaned text for the ear
+  (fixes broken sentences, drops citations/web cruft, speaks out symbols)
+  before narration. The hosted counterpart of the local app's Ollama pass.
+- **Dubbing → “Translate cues first”** — actually translates each subtitle cue
+  (the engine repo ships a passthrough stub) into natural voiceover English.
+
+Default model is Gemma 4 (`gemma-4-31b-it`); override with `GEMINI_MODEL`.
+The free tier comfortably covers personal use, so this stays $0. Pass the key
+at **run time** (`-e GEMINI_API_KEY=...` / your platform's env settings) —
+never bake it into the image or commit it.
+
+> **Why not Cloudflare Workers/Pages?** Those run static files and edge
+> functions — not a persistent Python server with ffmpeg. Deploying this repo
+> with `wrangler deploy` will fail. Use a container platform (including
+> Cloudflare's own Containers product), or run local mode and expose it with
+> `cloudflared tunnel --url http://127.0.0.1:<port>`.
+
+---
+
 ## Configuration
 
 Everything is optional. Copy `columbia.example.yaml` to `columbia.yaml` to
@@ -105,13 +154,18 @@ override. Resolution order: **defaults → `columbia.yaml` → `COLUMBIA_*` env 
 
 | Knob | Default | Meaning |
 |---|---|---|
-| `host` / `port` | `127.0.0.1` / `0` | bind address; `0` = free port |
+| `mode` | `local` | `local` (full engines, GPU) or `api` (online voices, CPU-only) |
+| `access_code` | `null` | when set, every request needs this code (hosted instances) |
+| `gemini_api_key` | `null` | enables Gemma translation + polish (prefer the env var) |
+| `gemini_model` | `null` | Gemini-API model id; default `gemma-4-31b-it` |
+| `host` / `port` | `127.0.0.1` / `0` | bind address; `0` = free port (`PORT` env honored) |
 | `tts_repo` | auto | path to the TTS checkout (`ttscore` package). `null` → find a sibling |
 | `dubbing_repo` | auto | path to the AI-Dubbing checkout (`dubbing` package). `null` → find a sibling |
 | `output_dir` | `output` | unified library: `.mp3` narrations + `.mp4` dubs |
 | `cache_dir` | `.columbia_cache` | engines' per-chunk / per-cue caches (crash-resume) |
 
-Env overrides: `COLUMBIA_HOST`, `COLUMBIA_PORT`, `COLUMBIA_TTS_REPO`,
+Env overrides: `COLUMBIA_MODE`, `COLUMBIA_ACCESS_CODE`, `GEMINI_API_KEY`,
+`GEMINI_MODEL`, `COLUMBIA_HOST`, `COLUMBIA_PORT`, `COLUMBIA_TTS_REPO`,
 `COLUMBIA_DUBBING_REPO`, `COLUMBIA_OUTPUT_DIR`.
 
 ---

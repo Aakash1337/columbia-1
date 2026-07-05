@@ -16,6 +16,7 @@ into later (swap :class:`~columbia.jobs.JobManager`; routes are unchanged).
 
 from __future__ import annotations
 
+import hmac
 import re
 import shutil
 import uuid
@@ -23,7 +24,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -56,6 +57,34 @@ def create_app(cfg: Optional[ColumbiaConfig] = None) -> FastAPI:
     app.state.manager = manager
     app.state.faculties = faculties
 
+    # ── Access gate (hosted instances) ────────────────────────────────────────
+    # When an access code is configured, everything except the page itself and
+    # the login endpoint requires it — as the cookie the login prompt sets, or
+    # an X-Access-Code header (handy for curl). The page and static assets stay
+    # open so the browser can render the code prompt.
+    if cfg.access_code:
+        @app.middleware("http")
+        async def _gate(request: Request, call_next):
+            path = request.url.path
+            open_paths = path == "/" or path == "/api/auth" or path.startswith("/static/")
+            if not open_paths:
+                supplied = (request.cookies.get("columbia_code")
+                            or request.headers.get("x-access-code") or "")
+                if not hmac.compare_digest(supplied, cfg.access_code):
+                    return JSONResponse({"detail": "access code required"}, status_code=401)
+            return await call_next(request)
+
+    @app.post("/api/auth")
+    async def auth(code: str = Form("")) -> JSONResponse:
+        if not cfg.access_code:
+            return JSONResponse({"ok": True})
+        if not hmac.compare_digest(code.strip(), cfg.access_code):
+            raise HTTPException(401, "wrong code")
+        resp = JSONResponse({"ok": True})
+        resp.set_cookie("columbia_code", cfg.access_code, httponly=True,
+                        samesite="strict", max_age=60 * 60 * 24 * 90)
+        return resp
+
     # ── UI ────────────────────────────────────────────────────────────────────
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:
@@ -63,8 +92,12 @@ def create_app(cfg: Optional[ColumbiaConfig] = None) -> FastAPI:
 
     @app.get("/api/faculties")
     def list_faculties() -> JSONResponse:
+        from .llm import DEFAULT_MODEL
         return JSONResponse({
             "version": __import__("columbia").__version__,
+            "mode": cfg.mode,
+            "llm": {"available": bool(cfg.gemini_api_key),
+                    "model": cfg.gemini_model or DEFAULT_MODEL},
             "faculties": [f.describe() for f in faculties.values()],
         })
 
@@ -77,6 +110,7 @@ def create_app(cfg: Optional[ColumbiaConfig] = None) -> FastAPI:
         engine: str = Form("edge"),
         voice: str = Form("en-US-AriaNeural"),
         speed: float = Form(1.0),
+        polish: str = Form("false"),
         file: Optional[UploadFile] = File(None),
     ) -> JSONResponse:
         fac = _require(faculties, "speech")
@@ -84,7 +118,8 @@ def create_app(cfg: Optional[ColumbiaConfig] = None) -> FastAPI:
         if input_type in ("pdf", "file") and file is not None and (file.filename or "").strip():
             upload = _save_upload(cfg, file)
         params = {"input_type": input_type, "text": text, "url": url,
-                  "engine": engine, "voice": voice, "speed": speed}
+                  "engine": engine, "voice": voice, "speed": speed,
+                  "polish": _as_bool(polish)}
         job = fac.start(manager, params, upload)
         return JSONResponse({"job_id": job.id})
 
@@ -97,6 +132,7 @@ def create_app(cfg: Optional[ColumbiaConfig] = None) -> FastAPI:
         translate: str = Form("false"),
         preview: str = Form("false"),
         max_atempo: float = Form(1.5),
+        voice: str = Form("en-US-GuyNeural"),      # API mode: edge narrator voice
     ) -> JSONResponse:
         fac = _require(faculties, "dubbing")
         if not (video.filename or "").strip():
@@ -113,7 +149,7 @@ def create_app(cfg: Optional[ColumbiaConfig] = None) -> FastAPI:
         if reference is not None and (reference.filename or "").strip():
             rpath = _save_upload(cfg, reference, job_dir)
         params = {"translate": _as_bool(translate), "preview": _as_bool(preview),
-                  "max_atempo": max_atempo}
+                  "max_atempo": max_atempo, "voice": voice}
         job = fac.start(manager, params, vpath, spath, rpath)
         return JSONResponse({"job_id": job.id})
 

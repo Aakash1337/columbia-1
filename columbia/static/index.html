@@ -86,6 +86,13 @@
           </div>
         </div>
 
+        <div class="field" id="sp-polish-field" hidden>
+          <label class="check">
+            <input type="checkbox" id="sp-polish">
+            <span class="t">Polish text with Gemma<small id="sp-polish-hint">Smooths messy input for the ear before narration — fixes broken sentences, drops citations and web cruft. Adds a little time per document.</small></span>
+          </label>
+        </div>
+
         <div class="actions">
           <button type="submit" class="btn btn--primary" id="sp-go">Generate narration</button>
           <button type="button" class="btn btn--ghost" id="sp-cancel" hidden>Cancel</button>
@@ -133,7 +140,7 @@
           </div>
         </div>
 
-        <div class="field">
+        <div class="field" id="dub-ref-field">
           <label class="lbl">Narrator voice <span style="color:var(--bone-mute)">(optional)</span></label>
           <label class="drop" id="dub-rdrop">
             <div class="big">Drop a 5–10s reference clip to clone</div>
@@ -143,6 +150,12 @@
           </label>
         </div>
 
+        <div class="field" id="dub-voice-field" hidden>
+          <label class="lbl" for="dub-voice">Narrator voice</label>
+          <input type="text" id="dub-voice" value="en-US-GuyNeural">
+          <div class="hint">Online neural voice used for every cue (e.g. en-US-GuyNeural, en-GB-RyanNeural).</div>
+        </div>
+
         <div class="field">
           <label class="check">
             <input type="checkbox" id="dub-preview">
@@ -150,7 +163,7 @@
           </label>
           <label class="check">
             <input type="checkbox" id="dub-translate">
-            <span class="t">Translate cues first<small>Only if your .srt isn't already English. Uses the engine's configured translator.</small></span>
+            <span class="t">Translate cues first<small id="dub-translate-hint">Only if your .srt isn't already English.</small></span>
           </label>
         </div>
 
@@ -194,6 +207,18 @@
       <div class="lib-list" id="lib-list"></div>
     </section>
   </main>
+
+  <!-- access-code gate (hosted instances only; shown when the API returns 401) -->
+  <div class="gate" id="gate" hidden>
+    <form class="gate-card" id="gate-form">
+      <span class="tel tel-gold">Restricted · Columbia-1</span>
+      <h2>Access code</h2>
+      <p>This instance is private. Enter the access code to continue.</p>
+      <input type="password" id="gate-code" placeholder="Access code" autocomplete="current-password">
+      <div class="gate-err" id="gate-err" hidden>Wrong code — try again.</div>
+      <button type="submit" class="btn btn--primary">Enter</button>
+    </form>
+  </div>
 
   <script src="/static/app.js"></script>
 </body>
