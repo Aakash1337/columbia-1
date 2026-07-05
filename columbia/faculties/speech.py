@@ -37,6 +37,12 @@ class SpeechFaculty(Faculty):
                 "TTS Reader engine not found",
                 detail="Expected the 'ttscore' package (set tts_repo in columbia.yaml).",
             )
+        if self.cfg.mode == "api":
+            # GPU-free path: only the online edge voices, which need edge-tts.
+            if not self._module_present("edge_tts"):
+                return Availability(False, "edge-tts package missing",
+                                    detail="pip install edge-tts (see requirements-api.txt)")
+            return Availability(True, "Ready", device="api")
         device = self._torch_device("cuda")
         # edge voices run online without a GPU, so the faculty is usable either
         # way; the device line just tells the user what Chatterbox would use.
@@ -47,8 +53,8 @@ class SpeechFaculty(Faculty):
               upload: Optional[Path] = None) -> Job:
         input_type = (params.get("input_type") or "text").strip().lower()
         engine = (params.get("engine") or "edge").strip().lower()
-        if engine not in _ENGINES:
-            engine = "edge"
+        if engine not in _ENGINES or self.cfg.mode == "api":
+            engine = "edge"      # API mode: no local models, ever
         voice = (params.get("voice") or "en-US-AriaNeural").strip()
         try:
             speed = max(0.5, min(2.0, float(params.get("speed") or 1.0)))

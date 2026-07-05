@@ -46,6 +46,20 @@ def _discover(base: Path, candidates: tuple[str, ...], package: str) -> Optional
 class ColumbiaConfig:
     """Every knob for the Columbia-1 server. See ``columbia.example.yaml``."""
 
+    # ── Mode ─────────────────────────────────────────────────────────────────
+    mode: str = "local"
+    """How jobs are powered:
+      - "local": drive the full engines (Chatterbox on your GPU) — the app you
+        run on the machine where the models live.
+      - "api":   GPU-free. Both faculties speak through Microsoft's online
+        neural voices (the `edge` engine) so the same app runs on any CPU-only
+        host (see Dockerfile). Chatterbox and voice-cloning are hidden."""
+
+    access_code: Optional[str] = None
+    """When set, every request must carry this code (cookie set by the login
+    prompt, or an X-Access-Code header). Meant for hosted API-mode instances,
+    which are otherwise open to anyone with the URL. None = no gate (local)."""
+
     # ── Network ──────────────────────────────────────────────────────────────
     host: str = "127.0.0.1"
     """Bind address. Localhost-only by default; set to 0.0.0.0 to expose on LAN."""
@@ -82,6 +96,11 @@ class ColumbiaConfig:
     def __post_init__(self) -> None:
         self.host = str(self.host).strip()
         self.port = int(self.port)
+        self.mode = str(self.mode).strip().lower()
+        if self.mode not in ("local", "api"):
+            raise ValueError(f"mode must be 'local' or 'api', got {self.mode!r}")
+        if self.access_code is not None:
+            self.access_code = str(self.access_code).strip() or None
 
     # ── Resolved paths (always absolute, under the repo root) ────────────────
     def _abs(self, value: str) -> Path:
@@ -154,6 +173,8 @@ class ColumbiaConfig:
 
     def _apply_env(self) -> None:
         env_map = {
+            "COLUMBIA_MODE": ("mode", str),
+            "COLUMBIA_ACCESS_CODE": ("access_code", str),
             "COLUMBIA_HOST": ("host", str),
             "COLUMBIA_PORT": ("port", int),
             "COLUMBIA_TTS_REPO": ("tts_repo", str),
@@ -164,4 +185,10 @@ class ColumbiaConfig:
             raw = os.environ.get(env)
             if raw:
                 setattr(self, attr, cast(raw))
+        # PaaS convention (Railway/Render/Fly set PORT): honored when no
+        # Columbia-specific port was given.
+        if not os.environ.get("COLUMBIA_PORT") and self.port == 0:
+            raw = os.environ.get("PORT")
+            if raw:
+                self.port = int(raw)
         self.__post_init__()

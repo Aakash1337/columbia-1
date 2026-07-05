@@ -133,7 +133,7 @@
           </div>
         </div>
 
-        <div class="field">
+        <div class="field" id="dub-ref-field">
           <label class="lbl">Narrator voice <span style="color:var(--bone-mute)">(optional)</span></label>
           <label class="drop" id="dub-rdrop">
             <div class="big">Drop a 5–10s reference clip to clone</div>
@@ -141,6 +141,12 @@
             <div class="file" id="dub-rname" hidden></div>
             <input type="file" id="dub-ref" accept=".wav,audio/wav">
           </label>
+        </div>
+
+        <div class="field" id="dub-voice-field" hidden>
+          <label class="lbl" for="dub-voice">Narrator voice</label>
+          <input type="text" id="dub-voice" value="en-US-GuyNeural">
+          <div class="hint">Online neural voice used for every cue (e.g. en-US-GuyNeural, en-GB-RyanNeural).</div>
         </div>
 
         <div class="field">
@@ -194,6 +200,18 @@
       <div class="lib-list" id="lib-list"></div>
     </section>
   </main>
+
+  <!-- access-code gate (hosted instances only; shown when the API returns 401) -->
+  <div class="gate" id="gate" hidden>
+    <form class="gate-card" id="gate-form">
+      <span class="tel tel-gold">Restricted · Columbia-1</span>
+      <h2>Access code</h2>
+      <p>This instance is private. Enter the access code to continue.</p>
+      <input type="password" id="gate-code" placeholder="Access code" autocomplete="current-password">
+      <div class="gate-err" id="gate-err" hidden>Wrong code — try again.</div>
+      <button type="submit" class="btn btn--primary">Enter</button>
+    </form>
+  </div>
 
   <script src="/static/app.js"></script>
 </body>

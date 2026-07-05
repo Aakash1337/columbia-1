@@ -45,10 +45,14 @@ function fmtWhen(iso) {
 
 /* ── faculty status ────────────────────────────────────────────────────── */
 async function loadFaculties() {
-  let data;
-  try { data = await (await fetch('/api/faculties')).json(); }
+  let res;
+  try { res = await fetch('/api/faculties'); }
   catch { return; }
+  if (res.status === 401) { showGate(); return; }
+  const data = await res.json();
+  $('#gate').hidden = true;
   $('#ver').textContent = 'v' + (data.version || '');
+  applyMode(data.mode || 'local');
   const row = $('#statusRow');
   row.innerHTML = '';
   for (const f of data.faculties) {
@@ -62,6 +66,30 @@ async function loadFaculties() {
     applyAvailability(f);
   }
 }
+
+/* API mode: no local models — only online voices, picked by name. */
+function applyMode(mode) {
+  const api = mode === 'api';
+  const cb = $('#sp-engine option[value="chatterbox"]');
+  if (cb) cb.hidden = api;
+  if (api && $('#sp-engine').value === 'chatterbox') $('#sp-engine').value = 'edge';
+  $('#dub-ref-field').hidden = api;      // cloning is Chatterbox-only
+  $('#dub-voice-field').hidden = !api;   // edge narrator picked by name
+}
+
+/* ── access-code gate ──────────────────────────────────────────────────── */
+function showGate() {
+  $('#gate').hidden = false;
+  $('#gate-code').focus();
+}
+$('#gate-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData();
+  fd.append('code', $('#gate-code').value);
+  const res = await fetch('/api/auth', { method: 'POST', body: fd });
+  if (res.ok) { $('#gate-err').hidden = true; loadFaculties(); }
+  else { $('#gate-err').hidden = false; $('#gate-code').select(); }
+});
 
 function applyAvailability(f) {
   const on = f.status.available;
@@ -224,7 +252,8 @@ function makeRunner(prefix, faculty, buildBody, renderResult) {
     fd.append('video', v);
     fd.append('srt', s);
     const ref = $('#dub-ref').files[0];
-    if (ref) fd.append('reference', ref);
+    if (ref && !$('#dub-ref-field').hidden) fd.append('reference', ref);
+    fd.append('voice', $('#dub-voice').value || 'en-US-GuyNeural');
     fd.append('translate', $('#dub-translate').checked);
     fd.append('preview', $('#dub-preview').checked);
     fd.append('max_atempo', atempo.value);

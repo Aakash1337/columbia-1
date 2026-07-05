@@ -4,6 +4,16 @@
 #
 # Every value here is optional; delete the ones you're happy to leave at default.
 
+# ── Mode ───────────────────────────────────────────────────────────────────
+# local: full engines (Chatterbox on your GPU) — the app on your own machine.
+# api:   GPU-free; both faculties use Microsoft's online neural voices, so the
+#        same app runs on any CPU-only host (see Dockerfile).
+mode: local
+
+# When set, every request must carry this code (the UI shows a login prompt).
+# Strongly recommended for hosted api-mode instances; pointless locally.
+access_code: null
+
 # ── Network ────────────────────────────────────────────────────────────────
 host: 127.0.0.1        # bind address; 0.0.0.0 to expose on your LAN
 port: 0                # 0 = pick a free port automatically

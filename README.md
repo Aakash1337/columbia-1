@@ -98,6 +98,41 @@ Columbia-1 0.1.0
 
 ---
 
+## Hosted (API mode)
+
+Columbia-1 has two modes — same app, same UI, different power source:
+
+| | `mode: local` | `mode: api` |
+|---|---|---|
+| Runs on | your GPU box, next to the repos | **any CPU-only container host** |
+| Speech voices | Chatterbox (offline, cloning) + edge | Microsoft online neural voices |
+| Dubbing narrator | Chatterbox (reference-clip cloning) | online neural voice, picked by name |
+| Needs torch / models | yes | **no** |
+
+In API mode both faculties speak through **edge-tts** (free, no key), so the
+whole app fits in a small container: the `Dockerfile` builds it with ffmpeg and
+the two engine repos' light code paths — no torch, no model downloads.
+
+```bash
+docker build -t columbia-1 .
+docker run -p 8080:8080 -e COLUMBIA_ACCESS_CODE=your-secret columbia-1
+```
+
+Deploy that image to **Railway, Fly.io, Render, Cloudflare Containers**, or any
+VPS. `$PORT` from the platform is honored automatically.
+
+**Set `COLUMBIA_ACCESS_CODE`** on any hosted instance — it gates every request
+behind a code prompt (cookie once entered, or an `X-Access-Code` header for
+curl). Without it, anyone with the URL can use your instance.
+
+> **Why not Cloudflare Workers/Pages?** Those run static files and edge
+> functions — not a persistent Python server with ffmpeg. Deploying this repo
+> with `wrangler deploy` will fail. Use a container platform (including
+> Cloudflare's own Containers product), or run local mode and expose it with
+> `cloudflared tunnel --url http://127.0.0.1:<port>`.
+
+---
+
 ## Configuration
 
 Everything is optional. Copy `columbia.example.yaml` to `columbia.yaml` to
@@ -105,14 +140,17 @@ override. Resolution order: **defaults → `columbia.yaml` → `COLUMBIA_*` env 
 
 | Knob | Default | Meaning |
 |---|---|---|
-| `host` / `port` | `127.0.0.1` / `0` | bind address; `0` = free port |
+| `mode` | `local` | `local` (full engines, GPU) or `api` (online voices, CPU-only) |
+| `access_code` | `null` | when set, every request needs this code (hosted instances) |
+| `host` / `port` | `127.0.0.1` / `0` | bind address; `0` = free port (`PORT` env honored) |
 | `tts_repo` | auto | path to the TTS checkout (`ttscore` package). `null` → find a sibling |
 | `dubbing_repo` | auto | path to the AI-Dubbing checkout (`dubbing` package). `null` → find a sibling |
 | `output_dir` | `output` | unified library: `.mp3` narrations + `.mp4` dubs |
 | `cache_dir` | `.columbia_cache` | engines' per-chunk / per-cue caches (crash-resume) |
 
-Env overrides: `COLUMBIA_HOST`, `COLUMBIA_PORT`, `COLUMBIA_TTS_REPO`,
-`COLUMBIA_DUBBING_REPO`, `COLUMBIA_OUTPUT_DIR`.
+Env overrides: `COLUMBIA_MODE`, `COLUMBIA_ACCESS_CODE`, `COLUMBIA_HOST`,
+`COLUMBIA_PORT`, `COLUMBIA_TTS_REPO`, `COLUMBIA_DUBBING_REPO`,
+`COLUMBIA_OUTPUT_DIR`.
 
 ---
 

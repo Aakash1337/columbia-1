@@ -1,0 +1,12 @@
+.git
+output
+.uploads
+.columbia_cache
+logs
+columbia.yaml
+__pycache__
+*.py[cod]
+.venv
+venv
+.pytest_cache
+.DS_Store

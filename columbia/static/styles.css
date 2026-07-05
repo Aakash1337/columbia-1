@@ -254,3 +254,19 @@ input[type="range"] { flex: 1; accent-color: var(--gold); }
 .offline-note code { font-family: var(--mono); font-size: 12.5px; color: var(--gold); }
 
 .hint { font-size: 12.5px; color: var(--bone-mute); margin-top: 7px; }
+
+/* ── access-code gate ────────────────────────────────────────────────────── */
+.gate {
+  position: fixed; inset: 0; z-index: 100; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--void) 88%, transparent); backdrop-filter: blur(10px);
+}
+.gate-card {
+  width: min(400px, calc(100vw - 48px)); padding: 34px;
+  background: linear-gradient(180deg, var(--panel), var(--void-2));
+  border: 1px solid var(--line-2); border-radius: var(--radius);
+  display: flex; flex-direction: column; gap: 14px;
+}
+.gate-card .tel-gold { color: var(--gold); }
+.gate-card h2 { font-family: var(--serif); font-weight: 500; font-size: 1.6rem; margin: 0; }
+.gate-card p { margin: 0; color: var(--bone-dim); font-size: 14px; }
+.gate-err { color: var(--bad); font-size: 13px; }

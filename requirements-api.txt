@@ -1,0 +1,32 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Columbia-1 — API-mode engine dependencies (GPU-free).
+#
+# In API mode both faculties speak through Microsoft's online neural voices
+# (edge-tts), so none of the heavy local-model stack (torch / chatterbox) is
+# needed. This file is the light subset of the two engine repos' requirements
+# that the API paths actually import. The Dockerfile installs requirements.txt
+# (web stack) + this file.
+#
+# ffmpeg must be on PATH (mp3 encode + video mux) — the Dockerfile installs it.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Voices: Microsoft online neural TTS (free, no key)
+edge-tts>=6.1.0
+
+# Audio math + I/O (shared by both engine pipelines)
+numpy
+soundfile>=0.12.1          # bundled libsndfile decodes the service's MP3 too
+
+# Speech faculty: ingest + text preparation (ttscore's edge path)
+trafilatura>=1.8.0         # URL -> clean article text
+readability-lxml>=0.8.1    # fallback extractor
+requests>=2.31.0
+pymupdf>=1.24.0            # PDF text extraction
+pysbd>=0.3.4               # sentence-aligned chunking
+num2words>=0.5.13          # speak numbers/currency naturally
+
+# Dubbing faculty: subtitle parsing (dubbing repo's srt path)
+srt>=3.5.0
+
+# Progress iterators used inside both pipelines
+tqdm>=4.66.0
