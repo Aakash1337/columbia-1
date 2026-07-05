@@ -1,0 +1,16 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Columbia-1 — unified web app over the TTS Reader and AI-Dubbing engines.
+#
+# Columbia-1 itself is light: it only needs the web stack below. The heavy work
+# (Chatterbox / edge-tts, torch, ffmpeg) lives in the two engine repos and is
+# installed by THEIR setup — Columbia-1 imports whichever ones it finds.
+#
+# Recommended: install this into the same virtual environment as the engines
+# (or a venv that can import them), so `import ttscore` / `import dubbing` and
+# their torch/chatterbox deps all resolve for the running jobs.
+# ─────────────────────────────────────────────────────────────────────────────
+
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9    # multipart form uploads (video / srt / documents)
+PyYAML>=6.0               # columbia.yaml config

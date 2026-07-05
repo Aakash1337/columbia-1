@@ -1,0 +1,23 @@
+# Columbia-1 configuration — copy to columbia.yaml and edit as needed.
+# Resolution order (lowest precedence first):
+#   dataclass defaults  <  this file (columbia.yaml)  <  COLUMBIA_* env vars
+#
+# Every value here is optional; delete the ones you're happy to leave at default.
+
+# ── Network ────────────────────────────────────────────────────────────────
+host: 127.0.0.1        # bind address; 0.0.0.0 to expose on your LAN
+port: 0                # 0 = pick a free port automatically
+open_browser: true     # open the browser to the served URL on start
+
+# ── Engine locations ───────────────────────────────────────────────────────
+# Paths to the two sibling repos. Leave unset (null) to auto-discover folders
+# named e.g. ../TTS and ../AI-Dubbing next to this checkout. Set explicitly if
+# they live elsewhere (Windows example paths shown).
+tts_repo: null         # e.g. E:\TTS          (must contain the ttscore package)
+dubbing_repo: null     # e.g. E:\AI-Dubbing   (must contain the dubbing package)
+
+# ── Storage ────────────────────────────────────────────────────────────────
+output_dir: output           # narrations (.mp3) + dubbed videos (.mp4) land here
+upload_dir: .uploads         # scratch for uploaded files (cleaned per job)
+cache_dir: .columbia_cache   # engine caches (per-chunk / per-cue, crash-resume)
+log_dir: logs                # per-run engine logs
