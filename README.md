@@ -139,11 +139,39 @@ The free tier comfortably covers personal use, so this stays $0. Pass the key
 at **run time** (`-e GEMINI_API_KEY=...` / your platform's env settings) —
 never bake it into the image or commit it.
 
-> **Why not Cloudflare Workers/Pages?** Those run static files and edge
-> functions — not a persistent Python server with ffmpeg. Deploying this repo
-> with `wrangler deploy` will fail. Use a container platform (including
-> Cloudflare's own Containers product), or run local mode and expose it with
-> `cloudflared tunnel --url http://127.0.0.1:<port>`.
+### Cloudflare Containers
+
+To host on Cloudflare specifically, this repo ships a ready
+[Containers](https://developers.cloudflare.com/containers/) setup:
+`wrangler.jsonc` + a thin Worker front door (`cloudflare/worker.js`) that
+proxies every request to the container built from the same `Dockerfile`.
+Requires the **Workers paid plan ($5/mo)** and **Docker running locally** for
+the deploy build:
+
+```bash
+npm install
+npx wrangler login
+npx wrangler secret put COLUMBIA_ACCESS_CODE   # gate the public URL
+npx wrangler secret put GEMINI_API_KEY         # optional: Gemma features
+npx wrangler deploy
+```
+
+Cloudflare-specific behavior to know:
+
+- **Cold starts / sleep** — the container boots on the first request (a few
+  seconds) and sleeps after ~20 idle minutes. The UI's job polling keeps it
+  awake while a page is open; don't close the tab mid-dub.
+- **Upload ceiling** — requests pass through a Worker, so video uploads are
+  capped by the plan's request-body limit (100 MB on the standard paid plan).
+  Bigger lecture videos need the Railway/Fly/VPS route instead.
+- **Ephemeral disk** — the library resets when the instance sleeps or
+  redeploys (true on most container hosts; durable storage is future work).
+
+> **Why not plain Cloudflare Workers/Pages?** Those run static files and edge
+> functions — not a persistent Python server with ffmpeg. `wrangler deploy`
+> only works here *because* of the container config above; without it the same
+> command fails. Alternative: run local mode and expose it with
+> `cloudflared tunnel --url http://127.0.0.1:<port>` (free, no paid plan).
 
 ---
 

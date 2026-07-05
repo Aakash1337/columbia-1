@@ -5,6 +5,11 @@
 /logs/
 columbia.yaml
 
+# Cloudflare / Node
+node_modules/
+.wrangler/
+package-lock.json
+
 # Python
 __pycache__/
 *.py[cod]

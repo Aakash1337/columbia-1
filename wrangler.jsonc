@@ -1,0 +1,48 @@
+// Cloudflare Containers deployment for Columbia-1 (API mode).
+//
+// This is the "stay on Cloudflare" hosting option: wrangler builds the
+// project's Dockerfile, pushes it to Cloudflare's registry, and a tiny Worker
+// (cloudflare/worker.js) proxies every request to the running container.
+// Requires the Workers PAID plan ($5/mo) — containers are not on the free tier.
+//
+//   npx wrangler login
+//   npx wrangler secret put COLUMBIA_ACCESS_CODE   # gate the public URL
+//   npx wrangler secret put GEMINI_API_KEY         # optional: Gemma features
+//   npx wrangler deploy                            # needs Docker running locally
+//
+// NOTE: plain `wrangler deploy` without this config was the original failure
+// mode — Workers alone can't run a Python+ffmpeg server. This config is what
+// makes the command meaningful: the Worker is just the front door, the app
+// lives in the container.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "columbia-1",
+  "main": "cloudflare/worker.js",
+  "compatibility_date": "2025-06-01",
+
+  "containers": [
+    {
+      "class_name": "Columbia1Container",
+      "image": "./Dockerfile",
+      "max_instances": 1,
+      // "standard-1" = 4 GiB / half vCPU. Dubbing assembles the full audio
+      // canvas in memory (a 30-min video ≈ 0.7 GB), so the smaller "dev" and
+      // "basic" types will OOM on real videos. Speech-only use could drop to
+      // "basic" to shave cost.
+      "instance_type": "standard-1"
+    }
+  ],
+
+  // Containers are addressed through a Durable Object class (defined in
+  // cloudflare/worker.js). SQLite-backed DOs are required for containers.
+  "durable_objects": {
+    "bindings": [
+      { "name": "COLUMBIA_CONTAINER", "class_name": "Columbia1Container" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Columbia1Container"] }
+  ],
+
+  "observability": { "enabled": true }
+}
