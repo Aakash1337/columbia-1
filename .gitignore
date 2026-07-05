@@ -1,0 +1,20 @@
+# Columbia-1 runtime artifacts
+/output/
+/.uploads/
+/.columbia_cache/
+/logs/
+columbia.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
